@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: Lab3
+
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+
+  jpa:
+    show-sql: ${SPRING_JPA_SHOW_SQL}
+    hibernate:
+      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL}
+    properties:
+      hibernate:
+        dialect: ${SPRING_JPA_HIBERNATE_DIALECT}
