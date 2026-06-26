@@ -7,6 +7,8 @@ WORKDIR /app
 # Copiamos lo necesario para instalar las dependencias
 COPY .mvn/ .mvn
 COPY mvnw pom.xml ./
+
+RUN chmod +x mvnw
 # Ejecuta el comando para instalar las dependencias
 RUN ./mvnw dependency:go-offline -B
 
