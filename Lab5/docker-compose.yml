@@ -1,0 +1,65 @@
+services:
+  # Servicio 1: PostgreSQL
+  db:
+    # Descarga una imagen de postgresql
+    image: postgres:16-alpine
+    container_name: lab3-db
+    # Se reinicia siempre
+    restart: always
+    # Variables para la base de datos
+    environment:
+      POSTGRES_DB: ${DATABASE_NAME}
+      POSTGRES_USER: ${DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+    ports:
+      #Exponemos el puerto 5433 y en el contenedor lo redirige al 5432
+      - "5433:5432"
+    volumes:
+      # Para la persistencia de datos
+      - lab3-db-data:/var/lib/postgresql/data
+    # Verifica que la base de datos se alla levantado "saludable"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USERNAME} -d ${DATABASE_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      # Se conecta a la red interna del contenedor
+    networks:
+      - lab3-network
+
+  # Servicio 2: Backend
+  app:
+    # Le indicamos que este lo construira en vez de descargar
+    build:
+      # Toma su contexto de donde se encuentre el docker-compose
+      context: .
+      # Utiliza el Dockerfile para construir el servicio
+      dockerfile: Dockerfile
+    container_name: lab3-api
+    # Si el servicio falla, reinicia el proceso
+    restart: on-failure
+    # Depende del servicio de la base de datos, por lo que espera a que se levante
+    depends_on:
+      db:
+        # Si el servicio se levanta correctamente, comienza el proceso de este
+        condition: service_healthy
+    # Variables de entorno que utiliza la app, tomar de referencia las que
+    # se usan en el application.yaml o properties
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/${DATABASE_NAME}
+      DATABASE_USERNAME: ${DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL: ${SPRING_JPA_HIBERNATE_DDL}
+      SPRING_JPA_SHOW_SQL: ${SPRING_JPA_SHOW_SQL}
+      SPRING_JPA_HIBERNATE_DIALECT: ${SPRING_JPA_HIBERNATE_DIALECT}
+    ports:
+      - "8080:8080"
+    networks:
+      - lab3-network
+
+networks:
+  lab3-network:
+
+volumes:
+  lab3-db-data:
+    driver: local

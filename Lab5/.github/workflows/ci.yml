@@ -1,0 +1,75 @@
+name: Merge to develop & main
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main", "develop"]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build and Run Tests
+        run: ./mvnw clean verify -B
+
+      - name: Upload Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: target/surefire-reports/
+
+  smoke-test-compose:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create test .env
+        run: |
+          cat <<EOF > .env
+          DATABASE_NAME=censo
+          DATABASE_USERNAME=postgres
+          DATABASE_PASSWORD=admin
+          SPRING_JPA_SHOW_SQL=false
+          SPRING_JPA_HIBERNATE_DDL=update
+          SPRING_JPA_HIBERNATE_DIALECT=org.hibernate.dialect.PostgreSQLDialect
+          EOF
+
+      - name: Start Docker Compose
+        run: docker compose up --build -d
+
+      - name: Wait for application
+        run: |
+          for i in $(seq 1 20); do
+            if curl -f http://localhost:8080/health; then
+              echo "The application responded correctly."
+              exit 0
+            fi
+            echo "Waiting for the application to start... ($i/20)"
+            sleep 5
+          done
+          echo "The application never responded."
+          exit 1
+
+      - name: Show Docker Logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Shutdown Docker Compose
+        if: always()
+        run: docker compose down -v
